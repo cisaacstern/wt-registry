@@ -51,9 +51,7 @@ class RegistryMetadata(BaseModel):
 
     title: str = Field(..., description="Human-readable title for the function")
     description: str = Field(..., description="Detailed description of what the function does")
-    tags: list[str] = Field(
-        default_factory=list, description="Optional categorization tags"
-    )
+    tags: list[str] = Field(default_factory=list, description="Optional categorization tags")
     deprecated: bool = Field(default=False, description="Whether this function is deprecated")
     deprecation_message: str | None = Field(
         default=None, description="Message explaining deprecation"
@@ -97,9 +95,7 @@ class RegistryEntry(BaseModel):
     metadata: RegistryMetadata = Field(..., description="User-provided metadata")
     module_path: str = Field(..., description="Full module path (e.g., 'mypackage.tasks')")
     function_name: str = Field(..., description="Function name (e.g., 'calculate_mean')")
-    json_schema: dict[str, Any] = Field(
-        ..., description="JSON schema from pydantic TypeAdapter"
-    )
+    json_schema: dict[str, Any] = Field(..., description="JSON schema from pydantic TypeAdapter")
 
     @property
     def fully_qualified_name(self) -> str:
