@@ -205,3 +205,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Auto-generated version file (hatchling-vcs)
+src/wt_registry/_version.py

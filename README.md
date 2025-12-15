@@ -1,2 +1,107 @@
 # wt-registry
-A registry of Python functions for composition into workflow templates.
+
+[![codecov](https://codecov.io/gh/USERNAME/wt-registry/branch/main/graph/badge.svg)](https://codecov.io/gh/USERNAME/wt-registry)
+
+Explicit function registry with JSON schema generation for Python.
+
+## Overview
+
+`wt-registry` provides a simple, explicit decorator-based approach to registering functions with rich metadata and automatic JSON schema generation using Pydantic.
+
+## Features
+
+- **Explicit Registration**: Use `@register` decorator with metadata (title, description, tags)
+- **Type Safety**: Requires complete type annotations for all registered functions
+- **JSON Schema Generation**: Automatically generates JSON schemas using Pydantic TypeAdapter
+- **Minimal Dependencies**: Only requires Python 3.10+ and Pydantic
+- **CLI Tool**: Export registry contents as JSON via command-line interface
+- **Fully Serializable**: Registry stores metadata and schemas, not function objects
+
+## Installation
+
+```bash
+uv pip install wt-registry
+```
+
+## Quick Start
+
+```python
+from wt_registry import register, get_registry
+
+@register(
+    title="Calculate Statistics",
+    description="Calculate mean, median, and stdev of numeric values",
+    tags=["statistics", "analysis"]
+)
+def calculate_statistics(
+    values: list[float],
+    precision: int = 2
+) -> dict[str, float]:
+    import statistics
+    return {
+        "mean": round(statistics.mean(values), precision),
+        "median": round(statistics.median(values), precision),
+        "stdev": round(statistics.stdev(values), precision) if len(values) > 1 else 0.0,
+    }
+
+# Access the registry
+registry = get_registry()
+for fqn, entry in registry.items():
+    print(f"{entry.metadata.title}: {fqn}")
+    print(f"  Schema: {entry.json_schema}")
+```
+
+## CLI Usage
+
+Export the entire registry as JSON:
+
+```bash
+wt-registry > registry.json
+```
+
+Filter by tags:
+
+```bash
+wt-registry --filter-tag statistics --format pretty
+```
+
+Filter by module:
+
+```bash
+wt-registry --module "myapp.tasks.*"
+```
+
+## Requirements
+
+- Python 3.10+
+- Pydantic 2.0+
+
+## Development
+
+Install development dependencies:
+
+```bash
+uv sync
+```
+
+Run tests:
+
+```bash
+uv run pytest
+```
+
+Run type checking:
+
+```bash
+uv run mypy src/wt_registry
+```
+
+Run linting:
+
+```bash
+uv run ruff check src/wt_registry
+```
+
+## License
+
+BSD-3-Clause
