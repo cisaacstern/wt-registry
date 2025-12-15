@@ -13,13 +13,12 @@ wt-registry/
 └── src/
     └── wt_registry/
         ├── __init__.py         # Public API: register, get_registry
-        ├── _version.py         # Version: "0.1.0"
         ├── models.py           # RegistryMetadata & RegistryEntry pydantic models
         ├── registry.py         # Global registry storage & retrieval
         ├── validation.py       # Function signature type validation
         ├── decorator.py        # @register decorator implementation
         ├── exceptions.py       # Custom exceptions
-        └── cli.py              # Click-based CLI for JSON output
+        └── cli.py              # argparse-based CLI for JSON output
 ```
 
 ## Core Components
@@ -121,7 +120,7 @@ wt-registry [--format json|pretty] [--filter-tag TAG]... [--module PATTERN]
 ```toml
 [project]
 name = "wt-registry"
-version = "0.1.0"
+dynamic = ["version"]
 requires-python = ">=3.10"
 dependencies = ["pydantic>=2.0.0,<3.0.0"]
 
@@ -132,11 +131,17 @@ wt-registry = "wt_registry.cli:main"
 dev = ["pytest>=7.0.0", "mypy>=1.0.0", "ruff>=0.1.0"]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatchling-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/wt_registry/_version.py"
 ```
 
-Initialize with `uv` for package management.
+Initialize with `uv` for package management. Version will be inferred from git tags.
 
 ## Implementation Sequence
 
@@ -144,7 +149,7 @@ Initialize with `uv` for package management.
 1. Initialize package structure with `uv init`
 2. Create `pyproject.toml` with dependencies
 3. Set up `src/wt_registry/` directory structure
-4. Create `.gitignore`, `README.md`
+4. Create `.gitignore` (include `src/wt_registry/_version.py` since it's auto-generated), `README.md`
 
 ### Phase 2: Core Models & Storage
 1. Implement `exceptions.py` - Custom exception classes
