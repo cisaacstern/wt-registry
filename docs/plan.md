@@ -39,7 +39,9 @@ wt-registry/
 - `metadata: RegistryMetadata` - User metadata above
 - `module_path: str` - Auto-detected from `func.__module__`
 - `function_name: str` - Auto-detected from `func.__qualname__`
-- `json_schema: dict` - From `pydantic.TypeAdapter(func).json_schema()`
+- `_func_ref: Callable` - Private reference to function for lazy schema generation
+- `_cached_schema: dict | None` - Cached JSON schema (generated on first access)
+- Property `json_schema: dict` - Lazy-generates and caches schema from `_func_ref`
 - Computed properties: `import_statement`, `fully_qualified_name`
 
 ### 2. Global Registry (`registry.py`)
@@ -88,18 +90,26 @@ Uses `inspect.signature()` to check annotations.
 ```
 
 **Flow:**
-1. Validate function signature (fail fast if untyped)
-2. Extract `module_path` from `func.__module__`
-3. Extract `function_name` from `func.__qualname__`
-4. Generate JSON schema using `pydantic.TypeAdapter(func).json_schema()`
-5. Create `RegistryEntry` with metadata and auto-detected info
-6. Call `register_entry()` to store in global registry
-7. Return original function unchanged (no wrapping)
+1. Extract `module_path` from `func.__module__`
+2. Extract `function_name` from `func.__qualname__`
+3. Create `RegistryEntry` with metadata, module/function info, and function reference
+   - **NO validation at this point** (lazy validation)
+   - **NO schema generation at this point** (lazy generation)
+   - Store reference to function for later validation and schema generation
+4. Call `register_entry()` to store in global registry
+5. Return original function unchanged (no wrapping)
+
+**Lazy Validation & Schema Generation:**
+- `RegistryEntry.json_schema` property validates and generates schema on first access
+- Validation step: calls `validate_function_signature(self._func_ref)` first
+- Schema generation: uses `pydantic.TypeAdapter(self._func_ref).json_schema()`
+- Caches result in `_cached_schema` to avoid re-validation and regeneration
+- Only happens when registry is accessed (e.g., CLI export), not at import time
 
 **Error handling:**
-- Untyped function → `ValidationError` with specific parameter names
-- Duplicate registration → `DuplicateRegistrationError` with FQN
-- Schema generation failure → `SchemaGenerationError` with underlying error
+- Duplicate registration → `DuplicateRegistrationError` with FQN (at registration time)
+- Untyped function → `ValidationError` with specific parameter names (at schema access time)
+- Schema generation failure → `SchemaGenerationError` (at schema access time)
 
 ### 5. CLI (`cli.py`)
 
@@ -242,9 +252,10 @@ jobs:
 3. Implement `registry.py` - Global registry with storage/retrieval functions
 
 ### Phase 3: Validation & Decorator
-1. Implement `validation.py` - Type signature validation using `inspect`
-2. Implement `decorator.py` - `@register` decorator integrating validation and schema generation
+1. Implement `validation.py` - Type signature validation using `inspect` (called lazily from models.py)
+2. Implement `decorator.py` - Lightweight `@register` decorator (no validation or schema generation)
 3. Create `__init__.py` - Export public API: `register`, `get_registry`
+4. Update `models.py` - Add lazy `json_schema` property with validation and generation
 
 ### Phase 4: CLI
 1. Implement `cli.py` - argparse-based command with filtering
@@ -300,9 +311,52 @@ wt-registry --filter-tag statistics --format pretty
 ## Key Design Decisions
 
 1. **Explicit over implicit**: `@register` decorator vs entry point auto-discovery
-2. **Fail fast**: Validate types at import time, not runtime
-3. **JSON-serializable**: Store metadata and schemas, not function objects
-4. **Simple CLI**: Output to stdout for easy piping and integration
-5. **Minimal dependencies**: Only pydantic required (CLI uses builtin argparse)
-6. **Type safety**: Require complete type annotations for schema generation
-7. **Flat registry**: Single dict keyed by fully qualified name (module.function)
+2. **Lazy validation and schema generation**: Don't validate or generate JSON schemas at import time - only when registry is accessed
+   - Lightweight imports: App startup is fast even with many registered functions
+   - Build-time export: CLI triggers validation and schema generation only during export
+   - Caching: Generated schemas are cached to avoid re-validation and regeneration
+3. **Defer validation**: Validation errors appear during build/export, not at import time
+4. **JSON-serializable**: Store metadata and schemas, not function objects
+5. **Simple CLI**: Output to stdout for easy piping and integration
+6. **Minimal dependencies**: Only pydantic required (argparse for CLI is builtin)
+7. **Type safety**: Require complete type annotations for schema generation
+8. **Flat registry**: Single dict keyed by fully qualified name (module.function)
+
+## Performance Characteristics
+
+**Import time (when modules are loaded):**
+- Extremely lightweight: Only stores metadata and function reference
+- No signature validation
+- No Pydantic TypeAdapter calls
+- No JSON schema generation
+- Fast application startup even with hundreds of registered functions
+
+**Registry access time (when `get_registry()` or `to_json()` is called):**
+- Validation and schemas generated lazily on first access to `entry.json_schema`
+- Results cached for subsequent accesses
+- Only occurs during build/export steps, not normal app runtime
+- Validation errors surface at this point (e.g., during CLI export)
+
+## Implementation Changes Required
+
+### Files to Modify
+
+1. **`src/wt_registry/models.py`**:
+   - Add private `_func_ref: Any` field (excluded from serialization)
+   - Add private `_cached_schema: dict | None` field (excluded from serialization)
+   - Change `json_schema` from field to `@property` with lazy validation + generation
+   - Property should: (1) validate signature, (2) generate schema, (3) cache result
+   - Use `model_config = ConfigDict(arbitrary_types_allowed=True)` to allow Callable storage
+
+2. **`src/wt_registry/decorator.py`**:
+   - Remove `validate_function_signature(func)` call from decorator
+   - Remove `TypeAdapter(func).json_schema()` call from decorator
+   - Pass `func` as `_func_ref` when creating RegistryEntry
+   - Remove all try/except blocks (error handling moves to property access)
+
+3. **Tests**:
+   - Update tests that expect validation errors at registration time - errors now occur at schema access
+   - Update tests that access `json_schema` - may need to trigger generation
+   - Add specific tests for lazy validation and generation behavior
+   - Verify caching works correctly
+   - Test that validation errors appear when accessing schema, not during registration
