@@ -8,8 +8,11 @@ Create a standalone Python package to replace the entry-point-based auto-discove
 ```
 wt-registry/
 ├── pyproject.toml              # Package config, dependencies (pydantic only), CLI entry point
-├── README.md
+├── README.md                   # Project overview with coverage badge
 ├── .gitignore
+├── .github/
+│   └── workflows/
+│       └── ci.yml              # CI workflow: tests, doctests, type checks, coverage
 └── src/
     └── wt_registry/
         ├── __init__.py         # Public API: register, get_registry
@@ -128,7 +131,12 @@ dependencies = ["pydantic>=2.0.0,<3.0.0"]
 wt-registry = "wt_registry.cli:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0.0", "mypy>=1.0.0", "ruff>=0.1.0"]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+]
 
 [build-system]
 requires = ["hatchling", "hatchling-vcs"]
@@ -139,9 +147,86 @@ source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
 version-file = "src/wt_registry/_version.py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "src/wt_registry"]
+python_files = ["test_*.py"]
+addopts = "--doctest-modules --doctest-continue-on-failure --cov=wt_registry --cov-report=term-missing --cov-report=xml"
+
+[tool.coverage.run]
+source = ["src/wt_registry"]
+omit = ["*/tests/*", "*/_version.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
 ```
 
 Initialize with `uv` for package management. Version will be inferred from git tags.
+
+### 7. CI/CD Configuration (`.github/workflows/ci.yml`)
+
+**GitHub Actions workflow to run on every push and PR:**
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for version inference
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Run tests with coverage
+        run: pytest
+
+      - name: Run type checking
+        run: mypy src/wt_registry
+
+      - name: Run linting
+        run: ruff check src/wt_registry
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+```
+
+**Coverage badge in README.md:**
+```markdown
+[![codecov](https://codecov.io/gh/USERNAME/wt-registry/branch/main/graph/badge.svg)](https://codecov.io/gh/USERNAME/wt-registry)
+```
 
 ## Implementation Sequence
 
@@ -149,7 +234,7 @@ Initialize with `uv` for package management. Version will be inferred from git t
 1. Initialize package structure with `uv init`
 2. Create `pyproject.toml` with dependencies
 3. Set up `src/wt_registry/` directory structure
-4. Create `.gitignore` (include `src/wt_registry/_version.py` since it's auto-generated), `README.md`
+4. Create `.gitignore` (include `src/wt_registry/_version.py`, `.coverage`, `coverage.xml`, `htmlcov/` since they're auto-generated), `README.md`
 
 ### Phase 2: Core Models & Storage
 1. Implement `exceptions.py` - Custom exception classes
@@ -169,7 +254,8 @@ Initialize with `uv` for package management. Version will be inferred from git t
 1. Write unit tests for each module
 2. Test decorator with various function signatures
 3. Test CLI output and filtering
-4. Write comprehensive README with usage examples
+4. Write comprehensive README with usage examples and coverage badge
+5. Set up `.github/workflows/ci.yml` for automated testing, type checking, and coverage reporting
 
 ## Critical Files
 
@@ -177,7 +263,9 @@ Initialize with `uv` for package management. Version will be inferred from git t
 - `src/wt_registry/decorator.py` - Main user-facing `@register` decorator
 - `src/wt_registry/registry.py` - Global registry storage mechanism
 - `src/wt_registry/validation.py` - Type safety enforcement
-- `pyproject.toml` - Package configuration and dependencies
+- `pyproject.toml` - Package configuration, dependencies, pytest/coverage config
+- `.github/workflows/ci.yml` - CI pipeline for tests, type checking, and coverage
+- `README.md` - Documentation with coverage badge
 
 ## Usage Example
 
