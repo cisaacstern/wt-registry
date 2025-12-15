@@ -1,5 +1,6 @@
 """wt-registry: Explicit function registry with JSON schema generation."""
 
-__all__ = ["get_registry", "register"]
+from wt_registry.decorator import register
+from wt_registry.registry import get_registry
 
-# Imports will be added as we implement the modules
+__all__ = ["get_registry", "register"]
