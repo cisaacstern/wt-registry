@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling", "hatchling-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wt-registry"
+dynamic = ["version"]
+description = "Explicit function registry with JSON schema generation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Charles Stern", email = "charles@example.com"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.0.0,<3.0.0",
+]
+
+[project.scripts]
+wt-registry = "wt_registry.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/wt_registry/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wt_registry"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "src/wt_registry"]
+python_files = ["test_*.py"]
+addopts = "--doctest-modules --doctest-continue-on-failure --cov=wt_registry --cov-report=term-missing --cov-report=xml"
+
+[tool.coverage.run]
+source = ["src/wt_registry"]
+omit = ["*/tests/*", "*/_version.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "RUF"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+files = ["src/wt_registry"]
