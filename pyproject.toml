@@ -35,6 +35,7 @@ dev = [
     "pytest-cov>=4.0.0",
     "mypy>=1.0.0",
     "ruff>=0.1.0",
+    "pre-commit>=3.0.0",
 ]
 
 [tool.hatch.version]
@@ -71,6 +72,12 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "RUF"]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+# Allow long lines in doctests showing exception messages
+"src/wt_registry/exceptions.py" = ["E501"]
+"src/wt_registry/registry.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.10"

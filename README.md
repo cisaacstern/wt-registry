@@ -81,7 +81,13 @@ wt-registry --module "myapp.tasks.*"
 Install development dependencies:
 
 ```bash
-uv sync
+uv sync --extra dev
+```
+
+Set up pre-commit hooks (automatically runs ruff linting and formatting on every commit):
+
+```bash
+uv run pre-commit install
 ```
 
 Run tests:
@@ -94,12 +100,6 @@ Run type checking:
 
 ```bash
 uv run mypy src/wt_registry
-```
-
-Run linting:
-
-```bash
-uv run ruff check src/wt_registry
 ```
 
 ## License

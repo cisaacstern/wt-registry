@@ -105,6 +105,7 @@ def clear_registry() -> None:
     Examples:
         >>> from wt_registry.models import RegistryMetadata, RegistryEntry
         >>> from wt_registry.registry import register_entry, get_registry, clear_registry
+        >>> clear_registry()  # Start fresh
         >>> metadata = RegistryMetadata(title="Test", description="Test")
         >>> entry = RegistryEntry(
         ...     metadata=metadata,
@@ -157,7 +158,5 @@ def to_json() -> str:
         >>> data["examples.json_func"]["metadata"]["tags"]
         ['example']
     """
-    registry_data = {
-        fqn: entry.model_dump(mode="json") for fqn, entry in _GLOBAL_REGISTRY.items()
-    }
+    registry_data = {fqn: entry.model_dump(mode="json") for fqn, entry in _GLOBAL_REGISTRY.items()}
     return json.dumps(registry_data, indent=2)
