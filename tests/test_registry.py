@@ -134,12 +134,16 @@ def test_to_json_single_entry() -> None:
         description="Test JSON serialization",
         tags=["test", "json"],
     )
+
+    def json_func(x: int) -> dict[str, int]:
+        return {"x": x}
+
     entry = RegistryEntry(
         metadata=metadata,
         module_path="test.json",
         function_name="json_func",
-        json_schema={"type": "object", "properties": {"x": {"type": "integer"}}},
     )
+    entry._func_ref = json_func
     register_entry(entry)
 
     json_str = to_json()
@@ -150,7 +154,9 @@ def test_to_json_single_entry() -> None:
     assert data["test.json.json_func"]["metadata"]["tags"] == ["test", "json"]
     assert data["test.json.json_func"]["module_path"] == "test.json"
     assert data["test.json.json_func"]["function_name"] == "json_func"
-    assert "properties" in data["test.json.json_func"]["json_schema"]
+    # json_schema is generated lazily and included in JSON output
+    assert "json_schema" in data["test.json.json_func"]
+    assert isinstance(data["test.json.json_func"]["json_schema"], dict)
 
 
 def test_to_json_multiple_entries() -> None:

@@ -3,12 +3,8 @@
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from pydantic import TypeAdapter
-
-from wt_registry.exceptions import SchemaGenerationError
 from wt_registry.models import RegistryEntry, RegistryMetadata
 from wt_registry.registry import register_entry
-from wt_registry.validation import validate_function_signature
 
 # Type variable for the decorated function
 F = TypeVar("F", bound=Callable[..., Any])
@@ -92,23 +88,12 @@ def register(
     """
 
     def decorator(func: F) -> F:
-        # 1. Validate function signature (fail fast if untyped)
-        validate_function_signature(func)
-
-        # 2. Extract metadata from function
+        # 1. Extract metadata from function
         module_path = func.__module__
         function_name = func.__qualname__
 
-        # 3. Generate JSON schema
-        try:
-            type_adapter: TypeAdapter[Any] = TypeAdapter(func)
-            json_schema = type_adapter.json_schema()
-        except Exception as e:
-            raise SchemaGenerationError(
-                f"Failed to generate JSON schema for {module_path}.{function_name}: {e}"
-            ) from e
-
-        # 4. Create and validate registry entry
+        # 2. Create registry entry with metadata and function reference
+        # NO validation or schema generation at this point (lazy)
         metadata = RegistryMetadata(
             title=title,
             description=description,
@@ -121,13 +106,13 @@ def register(
             metadata=metadata,
             module_path=module_path,
             function_name=function_name,
-            json_schema=json_schema,
         )
+        entry._func_ref = func
 
-        # 5. Register in global registry
+        # 3. Register in global registry
         register_entry(entry)
 
-        # 6. Return original function unchanged
+        # 4. Return original function unchanged
         return func
 
     return decorator

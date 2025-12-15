@@ -99,17 +99,22 @@ def test_registry_metadata_serialization() -> None:
 def test_registry_entry_minimal() -> None:
     """Test creating RegistryEntry with minimal fields."""
     metadata = RegistryMetadata(title="Test", description="Test function")
+
+    def sample_func(x: int) -> str:
+        return str(x)
+
     entry = RegistryEntry(
         metadata=metadata,
         module_path="myapp.tasks",
         function_name="test_func",
-        json_schema={"type": "object", "properties": {}},
     )
+    entry._func_ref = sample_func
 
     assert entry.metadata == metadata
     assert entry.module_path == "myapp.tasks"
     assert entry.function_name == "test_func"
-    assert entry.json_schema == {"type": "object", "properties": {}}
+    # json_schema is generated lazily
+    assert isinstance(entry.json_schema, dict)
 
 
 def test_registry_entry_fully_qualified_name() -> None:
@@ -119,7 +124,6 @@ def test_registry_entry_fully_qualified_name() -> None:
         metadata=metadata,
         module_path="mypackage.submodule.tasks",
         function_name="process_data",
-        json_schema={},
     )
 
     assert entry.fully_qualified_name == "mypackage.submodule.tasks.process_data"
@@ -132,33 +136,28 @@ def test_registry_entry_import_statement() -> None:
         metadata=metadata,
         module_path="mypackage.utils",
         function_name="helper_function",
-        json_schema={},
     )
 
     assert entry.import_statement == "from mypackage.utils import helper_function"
 
 
 def test_registry_entry_with_complex_schema() -> None:
-    """Test RegistryEntry with a complex JSON schema."""
+    """Test RegistryEntry with complex types generates schema."""
     metadata = RegistryMetadata(
         title="Complex Function", description="Function with complex schema"
     )
-    schema = {
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"},
-            "age": {"type": "integer", "minimum": 0},
-            "email": {"type": "string", "format": "email"},
-        },
-        "required": ["name", "age"],
-    }
-    entry = RegistryEntry(
-        metadata=metadata, module_path="app.users", function_name="create_user", json_schema=schema
-    )
 
-    assert entry.json_schema == schema
-    assert "properties" in entry.json_schema
-    assert "name" in entry.json_schema["properties"]
+    def create_user(name: str, age: int, email: str) -> dict[str, str | int]:
+        return {"name": name, "age": age, "email": email}
+
+    entry = RegistryEntry(metadata=metadata, module_path="app.users", function_name="create_user")
+    entry._func_ref = create_user
+
+    # Schema is generated lazily
+    schema = entry.json_schema
+    assert isinstance(schema, dict)
+    # Verify it's a valid Pydantic schema (has type or $defs)
+    assert "type" in schema or "$defs" in schema
 
 
 def test_registry_entry_serialization() -> None:
@@ -170,14 +169,14 @@ def test_registry_entry_serialization() -> None:
         metadata=metadata,
         module_path="test.module",
         function_name="serialize_test",
-        json_schema={"type": "function"},
     )
 
     data = entry.model_dump()
     assert data["metadata"]["title"] == "Serialize Entry"
     assert data["module_path"] == "test.module"
     assert data["function_name"] == "serialize_test"
-    assert data["json_schema"] == {"type": "function"}
+    # json_schema is a property, not a field, so it's not included in model_dump
+    assert "json_schema" not in data
 
 
 def test_registry_entry_json_mode_serialization() -> None:
@@ -187,7 +186,6 @@ def test_registry_entry_json_mode_serialization() -> None:
         metadata=metadata,
         module_path="test.json",
         function_name="json_test",
-        json_schema={"type": "object"},
     )
 
     data = entry.model_dump(mode="json")
@@ -227,13 +225,13 @@ def test_registry_entry_validation_missing_function_name() -> None:
     assert any(error["loc"] == ("function_name",) for error in errors)
 
 
-def test_registry_entry_validation_missing_json_schema() -> None:
-    """Test that RegistryEntry requires json_schema field."""
+def test_registry_entry_validation_missing_func_ref() -> None:
+    """Test that accessing json_schema without _func_ref raises AttributeError."""
     metadata = RegistryMetadata(title="Test", description="Test")
-    with pytest.raises(PydanticValidationError) as exc_info:
-        RegistryEntry(  # type: ignore
-            metadata=metadata, module_path="test", function_name="func"
-        )
+    entry = RegistryEntry(metadata=metadata, module_path="test", function_name="func")
 
-    errors = exc_info.value.errors()
-    assert any(error["loc"] == ("json_schema",) for error in errors)
+    # Accessing json_schema without setting _func_ref should raise AttributeError
+    with pytest.raises(AttributeError) as exc_info:
+        _ = entry.json_schema
+
+    assert "function reference not set" in str(exc_info.value)

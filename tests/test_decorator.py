@@ -121,37 +121,55 @@ def test_register_duplicate_raises_error() -> None:
 
 
 def test_register_untyped_function_raises_error() -> None:
-    """Test that registering an untyped function raises ValidationError."""
+    """Test that accessing schema for untyped function raises ValidationError."""
+
+    @register(title="Untyped", description="Untyped function")
+    def untyped_func(x) -> int:  # type: ignore
+        return 1
+
+    # Registration succeeds (lazy validation), but accessing schema fails
+    registry = get_registry()
+    fqn = next(iter(registry.keys()))
+    entry = registry[fqn]
 
     with pytest.raises(ValidationError) as exc_info:
-
-        @register(title="Untyped", description="Untyped function")
-        def untyped_func(x) -> int:  # type: ignore
-            return 1
+        _ = entry.json_schema
 
     assert "untyped parameters" in str(exc_info.value)
 
 
 def test_register_no_return_type_raises_error() -> None:
-    """Test that registering a function without return type raises ValidationError."""
+    """Test that accessing schema for function without return type raises ValidationError."""
+
+    @register(title="No Return", description="No return type")
+    def no_return_func(x: int):  # type: ignore
+        pass
+
+    # Registration succeeds (lazy validation), but accessing schema fails
+    registry = get_registry()
+    fqn = next(iter(registry.keys()))
+    entry = registry[fqn]
 
     with pytest.raises(ValidationError) as exc_info:
-
-        @register(title="No Return", description="No return type")
-        def no_return_func(x: int):  # type: ignore
-            pass
+        _ = entry.json_schema
 
     assert "no return type annotation" in str(exc_info.value)
 
 
 def test_register_async_function_raises_error() -> None:
-    """Test that registering an async function raises ValidationError."""
+    """Test that accessing schema for async function raises ValidationError."""
+
+    @register(title="Async", description="Async function")
+    async def async_func(x: int) -> str:
+        return "test"
+
+    # Registration succeeds (lazy validation), but accessing schema fails
+    registry = get_registry()
+    fqn = next(iter(registry.keys()))
+    entry = registry[fqn]
 
     with pytest.raises(ValidationError) as exc_info:
-
-        @register(title="Async", description="Async function")
-        async def async_func(x: int) -> str:
-            return "test"
+        _ = entry.json_schema
 
     assert "Async functions are not supported" in str(exc_info.value)
 
@@ -274,12 +292,18 @@ def test_register_function_with_docstring() -> None:
 
 
 def test_register_class_method_fails() -> None:
-    """Test that attempting to register a class fails."""
+    """Test that accessing schema for a class raises ValidationError."""
+
+    @register(title="Class", description="This is a class")
+    class MyClass:  # type: ignore
+        pass
+
+    # Registration succeeds (lazy validation), but accessing schema fails
+    registry = get_registry()
+    fqn = next(iter(registry.keys()))
+    entry = registry[fqn]
 
     with pytest.raises(ValidationError) as exc_info:
-
-        @register(title="Class", description="This is a class")
-        class MyClass:  # type: ignore
-            pass
+        _ = entry.json_schema
 
     assert "Classes are not supported" in str(exc_info.value)

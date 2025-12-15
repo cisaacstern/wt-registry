@@ -158,5 +158,10 @@ def to_json() -> str:
         >>> data["examples.json_func"]["metadata"]["tags"]
         ['example']
     """
-    registry_data = {fqn: entry.model_dump(mode="json") for fqn, entry in _GLOBAL_REGISTRY.items()}
+    registry_data = {}
+    for fqn, entry in _GLOBAL_REGISTRY.items():
+        data = entry.model_dump(mode="json")
+        # Manually add json_schema since it's a property, not a field
+        data["json_schema"] = entry.json_schema
+        registry_data[fqn] = data
     return json.dumps(registry_data, indent=2)
