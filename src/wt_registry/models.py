@@ -137,8 +137,8 @@ class RegistryEntry(BaseModel):
             ...     metadata=metadata,
             ...     module_path="test",
             ...     function_name="valid_func",
-            ...     _func_ref=valid_func
             ... )
+            >>> entry._func_ref = valid_func
             >>> schema = entry.json_schema
             >>> isinstance(schema, dict)
             True
@@ -151,8 +151,8 @@ class RegistryEntry(BaseModel):
             ...     metadata=metadata,
             ...     module_path="test",
             ...     function_name="invalid_func",
-            ...     _func_ref=invalid_func
             ... )
+            >>> entry2._func_ref = invalid_func
             >>> entry2.json_schema  # doctest: +IGNORE_EXCEPTION_DETAIL
             Traceback (most recent call last):
                 ...

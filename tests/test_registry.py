@@ -161,15 +161,19 @@ def test_to_json_single_entry() -> None:
 
 def test_to_json_multiple_entries() -> None:
     """Test to_json with multiple entries."""
-    entries = [
-        RegistryEntry(
+
+    def sample_func(x: int) -> str:
+        return str(x)
+
+    entries = []
+    for i in range(3):
+        entry = RegistryEntry(
             metadata=RegistryMetadata(title=f"Func{i}", description=f"Function {i}"),
             module_path="test.module",
             function_name=f"func_{i}",
-            json_schema={"type": "object"},
         )
-        for i in range(3)
-    ]
+        entry._func_ref = sample_func
+        entries.append(entry)
 
     for entry in entries:
         register_entry(entry)
@@ -192,12 +196,16 @@ def test_to_json_with_deprecated_function() -> None:
         deprecated=True,
         deprecation_message="Use new_function instead",
     )
+
+    def old_func(x: int) -> int:
+        return x
+
     entry = RegistryEntry(
         metadata=metadata,
         module_path="test.deprecated",
         function_name="old_func",
-        json_schema={},
     )
+    entry._func_ref = old_func
     register_entry(entry)
 
     json_str = to_json()
@@ -213,12 +221,16 @@ def test_to_json_with_deprecated_function() -> None:
 def test_to_json_is_valid_json() -> None:
     """Test that to_json produces valid JSON."""
     metadata = RegistryMetadata(title="Valid JSON", description="Test valid JSON output")
+
+    def valid_func(x: int) -> str:
+        return str(x)
+
     entry = RegistryEntry(
         metadata=metadata,
         module_path="test.valid",
         function_name="valid_func",
-        json_schema={"type": "function"},
     )
+    entry._func_ref = valid_func
     register_entry(entry)
 
     json_str = to_json()

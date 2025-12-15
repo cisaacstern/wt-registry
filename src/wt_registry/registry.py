@@ -67,6 +67,8 @@ def get_registry() -> MappingProxyType[str, RegistryEntry]:
         >>> from wt_registry.models import RegistryMetadata, RegistryEntry
         >>> from wt_registry.registry import register_entry, get_registry, clear_registry
         >>> clear_registry()
+        >>> def example_func(x: int) -> str:
+        ...     return str(x)
         >>> metadata = RegistryMetadata(
         ...     title="Example",
         ...     description="An example function"
@@ -75,8 +77,8 @@ def get_registry() -> MappingProxyType[str, RegistryEntry]:
         ...     metadata=metadata,
         ...     module_path="examples",
         ...     function_name="example_func",
-        ...     json_schema={}
         ... )
+        >>> entry._func_ref = example_func
         >>> register_entry(entry)
         >>> registry = get_registry()
         >>> "examples.example_func" in registry
@@ -106,13 +108,15 @@ def clear_registry() -> None:
         >>> from wt_registry.models import RegistryMetadata, RegistryEntry
         >>> from wt_registry.registry import register_entry, get_registry, clear_registry
         >>> clear_registry()  # Start fresh
+        >>> def test_func(x: int) -> str:
+        ...     return str(x)
         >>> metadata = RegistryMetadata(title="Test", description="Test")
         >>> entry = RegistryEntry(
         ...     metadata=metadata,
         ...     module_path="test",
         ...     function_name="func",
-        ...     json_schema={}
         ... )
+        >>> entry._func_ref = test_func
         >>> register_entry(entry)
         >>> len(get_registry())
         1
@@ -137,6 +141,8 @@ def to_json() -> str:
         >>> from wt_registry.models import RegistryMetadata, RegistryEntry
         >>> from wt_registry.registry import register_entry, to_json, clear_registry
         >>> clear_registry()
+        >>> def json_func(x: int) -> str:
+        ...     return str(x)
         >>> metadata = RegistryMetadata(
         ...     title="JSON Example",
         ...     description="Function for JSON example",
@@ -146,8 +152,8 @@ def to_json() -> str:
         ...     metadata=metadata,
         ...     module_path="examples",
         ...     function_name="json_func",
-        ...     json_schema={"type": "function"}
         ... )
+        >>> entry._func_ref = json_func
         >>> register_entry(entry)
         >>> import json
         >>> data = json.loads(to_json())
