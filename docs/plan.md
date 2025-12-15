@@ -108,7 +108,7 @@ wt-registry [--format json|pretty] [--filter-tag TAG]... [--module PATTERN]
 ```
 
 **Implementation:**
-- Use Click framework (add to optional dependencies)
+- Use builtin argparse (no additional dependencies)
 - Default format: JSON to stdout
 - Filter by tags (multiple allowed, OR logic)
 - Filter by module pattern (supports fnmatch wildcards)
@@ -131,7 +131,6 @@ dependencies = ["pydantic>=2.0.0,<3.0.0"]
 wt-registry = "wt_registry.cli:main"
 
 [project.optional-dependencies]
-cli = ["click>=8.0.0"]
 dev = ["pytest>=7.0.0", "mypy>=1.0.0", "ruff>=0.1.0"]
 
 [build-system]
@@ -160,9 +159,8 @@ Initialize with `uv` for package management.
 3. Create `__init__.py` - Export public API: `register`, `get_registry`
 
 ### Phase 4: CLI
-1. Implement `cli.py` - Click-based command with filtering
-2. Add Click to optional dependencies
-3. Configure entry point in `pyproject.toml`
+1. Implement `cli.py` - argparse-based command with filtering
+2. Configure entry point in `pyproject.toml`
 
 ### Phase 5: Testing & Documentation
 1. Write unit tests for each module
@@ -215,6 +213,6 @@ wt-registry --filter-tag statistics --format pretty
 2. **Fail fast**: Validate types at import time, not runtime
 3. **JSON-serializable**: Store metadata and schemas, not function objects
 4. **Simple CLI**: Output to stdout for easy piping and integration
-5. **Minimal dependencies**: Only pydantic required (Click is optional for CLI)
+5. **Minimal dependencies**: Only pydantic required (CLI uses builtin argparse)
 6. **Type safety**: Require complete type annotations for schema generation
 7. **Flat registry**: Single dict keyed by fully qualified name (module.function)
