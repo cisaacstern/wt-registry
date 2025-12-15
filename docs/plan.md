@@ -30,7 +30,6 @@ wt-registry/
 - `title: str` - Required, human-readable title
 - `description: str` - Required, detailed description
 - `tags: list[str]` - Optional categorization tags
-- `version: str | None` - Optional version string
 - `deprecated: bool` - Default False
 - `deprecation_message: str | None` - Deprecation details
 
@@ -81,7 +80,6 @@ Uses `inspect.signature()` to check annotations.
     title: str,
     description: str,
     tags: list[str] | None = None,
-    version: str | None = None,
     deprecated: bool = False,
     deprecation_message: str | None = None,
 ) -> Callable
@@ -184,8 +182,7 @@ from wt_registry import register
 @register(
     title="Calculate Statistics",
     description="Calculate mean, median, and stdev of numeric values",
-    tags=["statistics", "analysis"],
-    version="1.0.0"
+    tags=["statistics", "analysis"]
 )
 def calculate_statistics(
     values: list[float],
