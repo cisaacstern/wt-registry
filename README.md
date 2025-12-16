@@ -17,6 +17,29 @@ Explicit function registry with JSON schema generation for Python.
 - **CLI Tool**: Export registry contents as JSON via command-line interface
 - **Fully Serializable**: Registry stores metadata and schemas, not function objects
 
+## Quick Start with Examples
+
+The fastest way to see wt-registry in action:
+
+```bash
+# Clone the repository
+git clone https://github.com/USERNAME/wt-registry.git
+cd wt-registry
+
+# One-time setup
+uv sync
+
+# Run an example
+uv run python examples/basic_registration.py
+```
+
+See [examples/README.md](examples/README.md) for more examples demonstrating:
+- Basic function registration
+- JSON and pretty output formats
+- Function filtering
+- Deprecated function handling
+- Multi-module scenarios
+
 ## Installation
 
 ```bash

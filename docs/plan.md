@@ -359,3 +359,71 @@ wt-registry --filter-tag statistics --format pretty
    - Add specific tests for lazy validation and generation behavior
    - Test that validation errors appear when accessing schema, not during registration
    - Remove tests for caching behavior (no longer relevant)
+
+## Examples
+
+### Adding New Examples
+
+When implementing significant new features, add corresponding examples to demonstrate them:
+
+1. Create a standalone Python script in `examples/`
+2. Include a clear docstring explaining the feature
+3. Register functions demonstrating the feature
+4. Invoke CLI at the end to show output
+5. Update `examples/README.md` with description
+
+### Example Structure
+
+Each example should follow this pattern:
+
+```python
+#!/usr/bin/env python3
+"""
+Example: Feature Name
+
+Brief description of what this example demonstrates.
+
+Setup (one-time):
+    uv sync
+
+Run with:
+    uv run python examples/example_name.py
+"""
+
+from wt_registry import register
+
+# Register functions demonstrating the feature
+@register(...)
+def example_function(...):
+    ...
+
+if __name__ == "__main__":
+    from wt_registry.cli import main
+    import sys
+
+    sys.argv = ["example", "--format", "pretty"]
+    main()
+```
+
+### Running Examples
+
+Examples serve as both documentation and hands-on demonstrations:
+
+```bash
+# One-time setup
+uv sync
+
+# Run any example
+uv run python examples/basic_registration.py
+```
+
+### Current Examples
+
+- `basic_registration.py` - Getting started with function registration
+- `cli_json_output.py` - JSON format output
+- `cli_pretty_output.py` - Human-readable format
+- `filtering_functions.py` - Filtering by function names
+- `deprecated_functions.py` - Marking functions as deprecated
+- `multiple_modules.py` - Working with multiple modules
+
+Examples are the quickest way for new users to understand and explore wt-registry features.
