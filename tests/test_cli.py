@@ -1,0 +1,387 @@
+"""Tests for CLI functionality."""
+
+import json
+import sys
+from unittest.mock import patch
+
+import pytest
+
+from wt_registry import register
+from wt_registry.cli import filter_by_function_names, main, serialize_entries
+from wt_registry.models import RegistryEntry, RegistryMetadata
+from wt_registry.registry import clear_registry, get_registry, register_entry
+
+
+@pytest.fixture(autouse=True)
+def clean_registry() -> None:
+    """Clear the registry before each test for isolation."""
+    clear_registry()
+
+
+def test_cli_json_format_default(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test that default CLI output is JSON format."""
+
+    def test_func(x: int) -> str:
+        return str(x)
+
+    register(title="Test", description="Test function")(test_func)
+
+    with patch.object(sys, "argv", ["wt-registry"]):
+        main()
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+
+    assert isinstance(data, dict)
+    assert len(data) > 0
+
+
+def test_cli_json_format_explicit(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test explicit --format json argument."""
+
+    def test_func(x: int) -> str:
+        return str(x)
+
+    register(title="Test", description="Test function")(test_func)
+
+    with patch.object(sys, "argv", ["wt-registry", "--format", "json"]):
+        main()
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+
+    assert isinstance(data, dict)
+
+
+def test_cli_pretty_format(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test --format pretty output."""
+
+    def pretty_func(x: int) -> str:
+        return str(x)
+
+    register(title="Pretty Function", description="A pretty function", tags=["test", "pretty"])(
+        pretty_func
+    )
+
+    with patch.object(sys, "argv", ["wt-registry", "--format", "pretty"]):
+        main()
+
+    captured = capsys.readouterr()
+    output = captured.out
+
+    assert "===" in output
+    assert "Title: Pretty Function" in output
+    assert "Description: A pretty function" in output
+    assert "Tags: test, pretty" in output
+    assert "Deprecated: No" in output
+
+
+def test_cli_empty_registry(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test CLI with empty registry."""
+    with patch.object(sys, "argv", ["wt-registry"]):
+        main()
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+
+    assert data == {}
+
+
+def test_cli_filter_single_function(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test filtering by a single function name."""
+
+    def func1(x: int) -> str:
+        return str(x)
+
+    def func2(y: int) -> str:
+        return str(y)
+
+    register(title="Function 1", description="First function")(func1)
+    register(title="Function 2", description="Second function")(func2)
+
+    # Function name includes <locals> for functions defined in test functions
+    with patch.object(
+        sys,
+        "argv",
+        [
+            "wt-registry",
+            "--function",
+            "test_cli_filter_single_function.<locals>.func1",
+        ],
+    ):
+        main()
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+
+    assert len(data) == 1
+    # Find the entry with function_name containing "func1"
+    func1_entries = [v for v in data.values() if "func1" in v["function_name"]]
+    assert len(func1_entries) == 1
+
+
+def test_cli_filter_multiple_functions(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test filtering by multiple function names."""
+
+    def func1(x: int) -> str:
+        return str(x)
+
+    def func2(y: int) -> str:
+        return str(y)
+
+    def func3(z: int) -> str:
+        return str(z)
+
+    register(title="Function 1", description="First")(func1)
+    register(title="Function 2", description="Second")(func2)
+    register(title="Function 3", description="Third")(func3)
+
+    # Function names include <locals> for functions defined in test functions
+    with patch.object(
+        sys,
+        "argv",
+        [
+            "wt-registry",
+            "--function",
+            "test_cli_filter_multiple_functions.<locals>.func1",
+            "--function",
+            "test_cli_filter_multiple_functions.<locals>.func3",
+        ],
+    ):
+        main()
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+
+    assert len(data) == 2
+    function_names = [v["function_name"] for v in data.values()]
+    # Check that func1 and func3 are present, func2 is not
+    assert any("func1" in name for name in function_names)
+    assert any("func3" in name for name in function_names)
+    assert not any("func2" in name for name in function_names)
+
+
+def test_cli_filter_function_not_found(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test that non-existent function names don't cause errors."""
+
+    def real_func(x: int) -> str:
+        return str(x)
+
+    register(title="Real Function", description="A real function")(real_func)
+
+    # Request a function that doesn't exist - should not error
+    with patch.object(sys, "argv", ["wt-registry", "--function", "nonexistent"]):
+        main()
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+
+    # Should return empty dict since no functions match
+    assert data == {}
+
+
+def test_cli_filter_function_partial_match(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test filtering when some functions exist and some don't."""
+
+    def real_func(x: int) -> str:
+        return str(x)
+
+    register(title="Real Function", description="A real function")(real_func)
+
+    # Use correct function name including <locals>, plus one that doesn't exist
+    with patch.object(
+        sys,
+        "argv",
+        [
+            "wt-registry",
+            "--function",
+            "test_cli_filter_function_partial_match.<locals>.real_func",
+            "--function",
+            "fake_func",
+        ],
+    ):
+        main()
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+
+    # Should only include real_func
+    assert len(data) == 1
+    function_names = [v["function_name"] for v in data.values()]
+    assert any("real_func" in name for name in function_names)
+
+
+def test_cli_filter_no_functions_match(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test when all specified functions don't exist."""
+
+    def some_func(x: int) -> str:
+        return str(x)
+
+    register(title="Some Function", description="Some function")(some_func)
+
+    with patch.object(sys, "argv", ["wt-registry", "--function", "fake1", "--function", "fake2"]):
+        main()
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+
+    # Should return empty dict
+    assert data == {}
+
+
+def test_cli_filter_only_generates_schema_for_selected() -> None:
+    """Test that JSON schema is only generated for selected functions."""
+
+    def func1(x: int) -> str:
+        return str(x)
+
+    def func2(y: int) -> str:
+        return str(y)
+
+    metadata1 = RegistryMetadata(title="Function 1", description="First")
+    metadata2 = RegistryMetadata(title="Function 2", description="Second")
+
+    entry1 = RegistryEntry(
+        metadata=metadata1,
+        module_path="test",
+        function_name="func1",
+    )
+    entry1._func_ref = func1
+
+    entry2 = RegistryEntry(
+        metadata=metadata2,
+        module_path="test",
+        function_name="func2",
+    )
+    entry2._func_ref = func2
+
+    register_entry(entry1)
+    register_entry(entry2)
+
+    registry = get_registry()
+
+    # Filter to only include func1
+    filtered = filter_by_function_names(registry, ["func1"])
+
+    assert len(filtered) == 1
+    assert "test.func1" in filtered
+
+    # Serialize only the filtered entries
+    serialized = serialize_entries(filtered)
+
+    # Only func1 should be in the output
+    assert len(serialized) == 1
+    assert "test.func1" in serialized
+    assert "test.func2" not in serialized
+
+    # json_schema should be present for func1
+    assert "json_schema" in serialized["test.func1"]
+
+
+def test_cli_deprecated_function_json(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test that deprecated functions are correctly represented in JSON output."""
+
+    def old_func(x: int) -> int:
+        return x
+
+    register(
+        title="Old Function",
+        description="An old function",
+        deprecated=True,
+        deprecation_message="Use new_func instead",
+    )(old_func)
+
+    with patch.object(sys, "argv", ["wt-registry"]):
+        main()
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+
+    entry = next(iter(data.values()))
+    assert entry["metadata"]["deprecated"] is True
+    assert entry["metadata"]["deprecation_message"] == "Use new_func instead"
+
+
+def test_cli_deprecated_function_pretty(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test that deprecated functions are correctly represented in pretty format."""
+
+    def old_func(x: int) -> int:
+        return x
+
+    register(
+        title="Old Function",
+        description="An old function",
+        deprecated=True,
+        deprecation_message="Use new_func instead",
+    )(old_func)
+
+    with patch.object(sys, "argv", ["wt-registry", "--format", "pretty"]):
+        main()
+
+    captured = capsys.readouterr()
+    output = captured.out
+
+    assert "Deprecated: Yes (Use new_func instead)" in output
+
+
+def test_cli_function_with_no_tags(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test function with empty tags list."""
+
+    def no_tags_func(x: int) -> str:
+        return str(x)
+
+    register(title="No Tags Function", description="Function without tags")(no_tags_func)
+
+    with patch.object(sys, "argv", ["wt-registry", "--format", "pretty"]):
+        main()
+
+    captured = capsys.readouterr()
+    output = captured.out
+
+    # Should not include Tags line when there are no tags
+    assert "Title: No Tags Function" in output
+    # Tags line should not appear for empty tags
+    lines = output.split("\n")
+    tags_lines = [line for line in lines if line.startswith("Tags:")]
+    assert len(tags_lines) == 0
+
+
+def test_cli_duplicate_function_names_different_modules(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test two functions with same name but different modules."""
+
+    def helper_func(x: int) -> str:
+        return str(x)
+
+    # Create two entries with same function name but different modules
+    metadata1 = RegistryMetadata(title="Helper 1", description="First helper")
+    entry1 = RegistryEntry(
+        metadata=metadata1,
+        module_path="module1",
+        function_name="helper",
+    )
+    entry1._func_ref = helper_func
+
+    metadata2 = RegistryMetadata(title="Helper 2", description="Second helper")
+    entry2 = RegistryEntry(
+        metadata=metadata2,
+        module_path="module2",
+        function_name="helper",
+    )
+    entry2._func_ref = helper_func
+
+    register_entry(entry1)
+    register_entry(entry2)
+
+    # Filter by function name "helper" - should get both
+    with patch.object(sys, "argv", ["wt-registry", "--function", "helper"]):
+        main()
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+
+    # Both entries should be included
+    assert len(data) == 2
+    assert "module1.helper" in data
+    assert "module2.helper" in data
