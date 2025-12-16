@@ -127,17 +127,23 @@ def clear_registry() -> None:
     _GLOBAL_REGISTRY.clear()
 
 
-def to_json() -> str:
+def to_json(pretty: bool = False) -> str:
     """
     Serialize the entire registry to a JSON string.
 
     The registry is serialized using Pydantic's model_dump(mode='json')
     to ensure proper JSON serialization of all fields.
 
+    Args:
+        pretty: If True, output pretty-printed JSON with indentation.
+            If False (default), output compact single-line JSON.
+
     Returns:
         JSON string representation of the registry
 
     Examples:
+        Compact JSON (default):
+
         >>> from wt_registry.models import RegistryMetadata, RegistryEntry
         >>> from wt_registry.registry import register_entry, to_json, clear_registry
         >>> clear_registry()
@@ -163,6 +169,12 @@ def to_json() -> str:
         'JSON Example'
         >>> data["examples.json_func"]["metadata"]["tags"]
         ['example']
+
+        Pretty-printed JSON:
+
+        >>> output = to_json(pretty=True)
+        >>> "\\n" in output  # Has newlines for readability
+        True
     """
     registry_data = {}
     for fqn, entry in _GLOBAL_REGISTRY.items():
@@ -170,4 +182,7 @@ def to_json() -> str:
         # Manually add json_schema since it's a property, not a field
         data["json_schema"] = entry.json_schema
         registry_data[fqn] = data
-    return json.dumps(registry_data, indent=2)
+    if pretty:
+        return json.dumps(registry_data, indent=2)
+    else:
+        return json.dumps(registry_data, separators=(",", ":"))

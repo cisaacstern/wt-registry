@@ -385,3 +385,127 @@ def test_cli_duplicate_function_names_different_modules(
     assert len(data) == 2
     assert "module1.helper" in data
     assert "module2.helper" in data
+
+
+def test_cli_json_compact_default(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test that default JSON output is compact (single line, no indentation)."""
+
+    def compact_func(x: int) -> str:
+        return str(x)
+
+    register(title="Compact Test", description="Test compact output")(compact_func)
+
+    with patch.object(sys, "argv", ["wt-registry"]):
+        main()
+
+    captured = capsys.readouterr()
+    output = captured.out
+
+    # Compact JSON should not have newlines in the middle (only trailing newline from print)
+    # Remove the trailing newline from print, then check there are no other newlines
+    output_without_trailing = output.rstrip("\n")
+    assert "\n" not in output_without_trailing, "Compact JSON should be single line"
+
+    # Verify it's still valid JSON
+    data = json.loads(output)
+    assert isinstance(data, dict)
+    assert len(data) > 0
+
+
+def test_cli_json_pretty_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test that --pretty flag produces indented JSON output."""
+
+    def pretty_func(x: int) -> str:
+        return str(x)
+
+    register(title="Pretty Test", description="Test pretty output")(pretty_func)
+
+    with patch.object(sys, "argv", ["wt-registry", "--pretty"]):
+        main()
+
+    captured = capsys.readouterr()
+    output = captured.out
+
+    # Pretty JSON should have newlines and indentation
+    assert "\n" in output, "Pretty JSON should have newlines"
+    # Check for indentation (spaces at start of lines)
+    lines = output.split("\n")
+    indented_lines = [line for line in lines if line.startswith("  ")]
+    assert len(indented_lines) > 0, "Pretty JSON should have indented lines"
+
+    # Verify it's still valid JSON
+    data = json.loads(output)
+    assert isinstance(data, dict)
+    assert len(data) > 0
+
+
+def test_cli_json_compact_with_format_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test compact output with explicit --format json (no --pretty)."""
+
+    def compact_func(x: int) -> str:
+        return str(x)
+
+    register(title="Compact Test", description="Test compact output")(compact_func)
+
+    with patch.object(sys, "argv", ["wt-registry", "--format", "json"]):
+        main()
+
+    captured = capsys.readouterr()
+    output = captured.out
+
+    # Should be compact
+    output_without_trailing = output.rstrip("\n")
+    assert "\n" not in output_without_trailing, "Compact JSON should be single line"
+
+    data = json.loads(output)
+    assert isinstance(data, dict)
+
+
+def test_cli_json_pretty_with_format_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test that --pretty works with --format json."""
+
+    def pretty_func(x: int) -> str:
+        return str(x)
+
+    register(title="Pretty Test", description="Test pretty output")(pretty_func)
+
+    with patch.object(sys, "argv", ["wt-registry", "--format", "json", "--pretty"]):
+        main()
+
+    captured = capsys.readouterr()
+    output = captured.out
+
+    # Should be pretty
+    assert "\n" in output
+    lines = output.split("\n")
+    indented_lines = [line for line in lines if line.startswith("  ")]
+    assert len(indented_lines) > 0
+
+    data = json.loads(output)
+    assert isinstance(data, dict)
+
+
+def test_cli_pretty_flag_doesnt_affect_pretty_format(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test that --pretty flag doesn't affect --format pretty (text) output."""
+
+    def text_func(x: int) -> str:
+        return str(x)
+
+    register(title="Text Test", description="Test text output", tags=["test"])(text_func)
+
+    # Get output without --pretty
+    with patch.object(sys, "argv", ["wt-registry", "--format", "pretty"]):
+        main()
+    captured = capsys.readouterr()
+    output_without_flag = captured.out
+
+    # Get output with --pretty
+    with patch.object(sys, "argv", ["wt-registry", "--format", "pretty", "--pretty"]):
+        main()
+    captured = capsys.readouterr()
+    output_with_flag = captured.out
+
+    # Both should produce the same text output
+    assert output_without_flag == output_with_flag
+    assert "===" in output_with_flag
+    assert "Title: Text Test" in output_with_flag

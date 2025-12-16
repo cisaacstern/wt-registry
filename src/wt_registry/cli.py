@@ -181,6 +181,11 @@ def main() -> None:
         help="Output format (default: json)",
     )
     parser.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print JSON output with indentation (default: compact)",
+    )
+    parser.add_argument(
         "--function",
         action="append",
         dest="function_names",
@@ -200,7 +205,10 @@ def main() -> None:
         # Format and output
         if args.format == "json":
             serialized = serialize_entries(filtered_entries)
-            output = json.dumps(serialized, indent=2)
+            if args.pretty:
+                output = json.dumps(serialized, indent=2)
+            else:
+                output = json.dumps(serialized, separators=(",", ":"))
             print(output)
         else:  # pretty
             output = format_pretty(filtered_entries)
